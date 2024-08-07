@@ -5,13 +5,14 @@ from selenium.webdriver.support import expected_conditions as EC
 
 url = "https://dining.ncsu.edu/locations/"
 
-driver = webdriver.Chrome()
+driver_main = webdriver.Chrome()
+driver_detail = webdriver.Chrome()
 
-driver.get(url)
+driver_main.get(url)
 
 diningHallsList = [
     "Talley – Los Lobos Global Kitchen",
-    "Fountain",
+    "Talley – Tuffy’s Diner",
     "Clark",
     "Case",
     "University Towers",
@@ -20,81 +21,93 @@ diningHallsList = [
 
 try:
 
-    def get_location_tiles():
-        return WebDriverWait(driver, 10).until(
+    def get_location_tiles(driver):
+        return WebDriverWait(driver, 20).until(
             EC.presence_of_all_elements_located((By.CLASS_NAME, "location-tile--open"))
         )
 
-    location_tiles = get_location_tiles()
+    location_tiles = get_location_tiles(driver_main)
 
     for tile in location_tiles:
-        name_element = tile.find_element(
-            By.CLASS_NAME, "location-tile__bar"
-        ).find_element(By.TAG_NAME, "h4")
+        try:
+            name_element = tile.find_element(
+                By.CLASS_NAME, "location-tile__bar"
+            ).find_element(By.TAG_NAME, "h4")
 
-        name = name_element.text
+            name = name_element.text
 
-        if name in diningHallsList:
-            print(f"Found dining hall: {name}")
-            link = tile.find_element(By.TAG_NAME, "a")
-            link.click()
+            if name in diningHallsList:
+                print(f"Found dining hall: {name}")
+                link = tile.find_element(By.TAG_NAME, "a")
+                dining_hall_url = link.get_attribute("href")
 
-            # Wait for the menu page to load
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "dining-menu-category"))
-            )
+                driver_detail.get(dining_hall_url)
 
-            menu_tiles = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located(
-                    (By.CLASS_NAME, "dining-menu-category")
+                # Wait for the menu page to load
+                WebDriverWait(driver_detail, 20).until(
+                    EC.presence_of_element_located(
+                        (By.CLASS_NAME, "dining-menu-category")
+                    )
                 )
-            )
 
-            if not menu_tiles:
-                print("No menu items found.")
-            else:
-                for menu in menu_tiles:
-                    menu_items = menu.find_elements(By.TAG_NAME, "li")
+                menu_tiles = WebDriverWait(driver_detail, 20).until(
+                    EC.presence_of_all_elements_located(
+                        (By.CLASS_NAME, "dining-menu-category")
+                    )
+                )
 
-                    for item in menu_items:
-                        item_name = item.find_element(By.TAG_NAME, "a").text
-                        print(f"Found item: {item_name}")
+                if not menu_tiles:
+                    print("No menu items found.")
+                else:
+                    for menu in menu_tiles:
+                        menu_items = menu.find_elements(By.TAG_NAME, "li")
 
-                        item.find_element(By.TAG_NAME, "a").click()
+                        for item in menu_items:
+                            item_name = item.find_element(By.TAG_NAME, "a").text
+                            print(f"Found item: {item_name}")
 
-                        WebDriverWait(driver, 20).until_not(
-                            EC.presence_of_element_located(
-                                (By.CLASS_NAME, "fa-refresh")
+                            item.find_element(By.TAG_NAME, "a").click()
+
+                            WebDriverWait(driver_detail, 20).until_not(
+                                EC.presence_of_element_located(
+                                    (By.CLASS_NAME, "fa-refresh")
+                                )
                             )
-                        )
 
-                        nutrients_container = WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located(
-                                (By.CLASS_NAME, "menu-dining-menu-modal-nutrition")
+                            nutrients_container = WebDriverWait(
+                                driver_detail, 20
+                            ).until(
+                                EC.presence_of_element_located(
+                                    (By.CLASS_NAME, "menu-dining-menu-modal-nutrition")
+                                )
                             )
-                        )
 
-                        nutrient_rows = nutrients_container.find_elements(
-                            By.CLASS_NAME, "menu-nutrition-row"
-                        )
+                            nutrient_rows = nutrients_container.find_elements(
+                                By.CLASS_NAME, "menu-nutrition-row"
+                            )
 
-                        print(f"Found {len(nutrient_rows)} nutrient rows.")
+                            for row in nutrient_rows:
+                                nutrient_name = row.find_element(
+                                    By.TAG_NAME, "strong"
+                                ).text
+                                nutrient_value = row.find_element(
+                                    By.CLASS_NAME, "menu-nutrition-row-value"
+                                ).text
+                                print(f"{nutrient_name}: {nutrient_value}")
 
-                        for row in nutrient_rows:
-                            nutrient_name = row.find_element(By.TAG_NAME, "strong").text
-                            nutrient_value = row.find_element(
-                                By.CLASS_NAME, "menu-nutrition-row-value"
-                            ).text
-                            print(f"{nutrient_name}: {nutrient_value}")
+                            close_button = WebDriverWait(driver_detail, 20).until(
+                                EC.element_to_be_clickable(
+                                    (By.ID, "dining-menu-modal-close")
+                                )
+                            )
 
-                        close_button = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.CLASS_NAME, "modal-close"))
-                        )
-                        close_button.click()
+                            close_button.click()
 
-            driver.back()
+                driver_detail.back()
 
-            location_tiles = get_location_tiles()
+        except Exception as e:
+            print(f"Error processing dining hall {name}: {e}")
 
 finally:
-    driver.quit()
+    driver_main.quit()
+    driver_detail.quit()
