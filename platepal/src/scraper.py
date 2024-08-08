@@ -106,6 +106,7 @@ try:
                 driver_detail.back()
 
         except Exception as e:
+
             print(f"Error processing dining hall {name}: {e}")
 
 finally:
