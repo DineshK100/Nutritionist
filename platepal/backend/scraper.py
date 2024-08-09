@@ -4,8 +4,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import schedule
 import time
+import datetime
+from pymongo import MongoClient
+import certifi
 
 url = "https://dining.ncsu.edu/locations/"
+
+connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
+
+try:
+    client = MongoClient(
+        connection_string, tlsCAFile=certifi.where(), tlsAllowInvalidCertificates=True
+    )
+except Exception as e:
+    print("Error:", e)
+
+
+db = client["diningMenus"]
+
+# for the diningHalls cluster this will be the format:
+# name, menus (an array of menus representing breakfast, lunch, and dinner)
 
 
 def scraper(meal):
@@ -13,17 +31,21 @@ def scraper(meal):
     driver_detail = webdriver.Chrome()
     driver_main.get(url)
 
+    # will add more as they open
     diningHallsList = [
-        "Talley – Los Lobos Global Kitchen",
         "Talley – Tuffy’s Diner",
+        "Fountain",
         "Clark",
         "Case",
         "University Towers",
         "One Earth",
+        "Talley – Los Lobos Global Kitchen",
+        "Talley – 1887 Bistro",
     ]
 
     try:
 
+        # Waits for the website to load in all the restaurant info and breaks them into tiles (only open ones)
         def get_location_tiles(driver):
             return WebDriverWait(driver, 20).until(
                 EC.presence_of_all_elements_located(
@@ -34,16 +56,26 @@ def scraper(meal):
         location_tiles = get_location_tiles(driver_main)
 
         for tile in location_tiles:
+
             try:
+
+                # name of the restaurant
                 name_element = tile.find_element(
                     By.CLASS_NAME, "location-tile__bar"
                 ).find_element(By.TAG_NAME, "h4")
 
                 name = name_element.text
 
+                diningHallId = db.diningHalls.insert_one(
+                    {"name": name, "menus": []}
+                ).inserted_id
+
                 if name in diningHallsList:
+
                     print(f"Found dining hall: {name}")
+
                     link = tile.find_element(By.TAG_NAME, "a")
+
                     dining_hall_url = link.get_attribute("href")
 
                     driver_detail.get(dining_hall_url)
@@ -54,7 +86,7 @@ def scraper(meal):
                             (By.CLASS_NAME, "dining-menu-category")
                         )
                     )
-
+                    # the previous code waits for it to load and then this code adds it to a variable
                     menu_tiles = WebDriverWait(driver_detail, 20).until(
                         EC.presence_of_all_elements_located(
                             (By.CLASS_NAME, "dining-menu-category")
@@ -64,15 +96,32 @@ def scraper(meal):
                     if not menu_tiles:
                         print("No menu items found.")
                     else:
+
                         for menu in menu_tiles:
+
                             menu_items = menu.find_elements(By.TAG_NAME, "li")
                             print(f"Scraping {meal} for {name}")
+
                             for item in menu_items:
+
+                                menu_id = db.menus.insert_one(
+                                    {
+                                        "diningHallId": diningHallId,
+                                        "mealType": meal,
+                                        "date": datetime.datetime.now().strftime(
+                                            "%Y-%m-%d %H:%M:%S"
+                                        ),
+                                        "items": [],
+                                    }
+                                ).inserted_id
+
                                 item_name = item.find_element(By.TAG_NAME, "a").text
                                 print(f"Found item: {item_name}")
 
+                                # clicks into the nutrient popup
                                 item.find_element(By.TAG_NAME, "a").click()
 
+                                # waits for the loading icon in the popup to go away to start scraping
                                 WebDriverWait(driver_detail, 20).until_not(
                                     EC.presence_of_element_located(
                                         (By.CLASS_NAME, "fa-refresh")
@@ -93,16 +142,40 @@ def scraper(meal):
                                 nutrient_rows = nutrients_container.find_elements(
                                     By.CLASS_NAME, "menu-nutrition-row"
                                 )
-
+                                nutrients = []
                                 for row in nutrient_rows:
+
                                     nutrient_name = row.find_element(
                                         By.TAG_NAME, "strong"
                                     ).text
+
                                     nutrient_value = row.find_element(
                                         By.CLASS_NAME, "menu-nutrition-row-value"
                                     ).text
+
                                     print(f"{nutrient_name}: {nutrient_value}")
 
+                                    nutrients.append(
+                                        {
+                                            "nutrient": nutrient_name,
+                                            "value": nutrient_value,
+                                        }
+                                    )
+
+                                    menu_item_id = db.items.insert_one(
+                                        {
+                                            "name": item_name,
+                                            "nutrients": nutrients,
+                                            "allergens": [],
+                                        }
+                                    ).inserted_id
+
+                                    db.menus.update_one(
+                                        {"_id": menu_id},
+                                        {"$push": {"items": menu_item_id}},
+                                    )
+
+                                # closes the popup once the items have been scraped and the close button shows up
                                 close_button = WebDriverWait(driver_detail, 20).until(
                                     EC.element_to_be_clickable(
                                         (By.ID, "dining-menu-modal-close")
@@ -139,4 +212,4 @@ schedule.every().day.at("16:00").do(scrapeDinner)
 
 while True:
     schedule.run_pending()
-    time.sleep(60)
+    time.sleep(10)
