@@ -106,7 +106,7 @@ def scraper(meal):
 
                                 menu_id = db.menus.insert_one(
                                     {
-                                        "diningHallId": diningHallId,
+                                        "diningHall_id": diningHallId,
                                         "mealType": meal,
                                         "date": datetime.datetime.now().strftime(
                                             "%Y-%m-%d %H:%M:%S"
