@@ -10,6 +10,8 @@ import certifi
 
 url = "https://dining.ncsu.edu/locations/"
 
+# look into cacheing the stuff to avoid repetition
+
 connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
 
 try:
@@ -34,7 +36,7 @@ def scraper(meal):
     # will add more as they open
     diningHallsList = [
         "Talley – Tuffy’s Diner",
-        "Fountain",
+        # "Fountain",
         "Clark",
         "Case",
         "University Towers",
@@ -65,6 +67,8 @@ def scraper(meal):
                 ).find_element(By.TAG_NAME, "h4")
 
                 name = name_element.text
+
+                # Check to see if the element is already there before inserting
 
                 diningHallId = db.diningHalls.insert_one(
                     {"name": name, "menus": []}
@@ -97,23 +101,27 @@ def scraper(meal):
                         print("No menu items found.")
                     else:
 
+                        menu_id = db.menus.insert_one(
+                            {
+                                "diningHall_id": diningHallId,
+                                "mealType": meal,
+                                "date": datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                "items": [],
+                            }
+                        ).inserted_id
+
+                        db.diningHalls.update_one(
+                            {"_id": diningHallId}, {"$push": {"menus": menu_id}}
+                        )
+
                         for menu in menu_tiles:
 
                             menu_items = menu.find_elements(By.TAG_NAME, "li")
                             print(f"Scraping {meal} for {name}")
 
                             for item in menu_items:
-
-                                menu_id = db.menus.insert_one(
-                                    {
-                                        "diningHall_id": diningHallId,
-                                        "mealType": meal,
-                                        "date": datetime.datetime.now().strftime(
-                                            "%Y-%m-%d %H:%M:%S"
-                                        ),
-                                        "items": [],
-                                    }
-                                ).inserted_id
 
                                 item_name = item.find_element(By.TAG_NAME, "a").text
                                 print(f"Found item: {item_name}")
@@ -162,18 +170,18 @@ def scraper(meal):
                                         }
                                     )
 
-                                    menu_item_id = db.items.insert_one(
-                                        {
-                                            "name": item_name,
-                                            "nutrients": nutrients,
-                                            "allergens": [],
-                                        }
-                                    ).inserted_id
+                                menu_item_id = db.items.insert_one(
+                                    {
+                                        "name": item_name,
+                                        "nutrients": nutrients,
+                                        "allergens": [],
+                                    }
+                                ).inserted_id
 
-                                    db.menus.update_one(
-                                        {"_id": menu_id},
-                                        {"$push": {"items": menu_item_id}},
-                                    )
+                                db.menus.update_one(
+                                    {"_id": menu_id},
+                                    {"$push": {"items": menu_item_id}},
+                                )
 
                                 # closes the popup once the items have been scraped and the close button shows up
                                 close_button = WebDriverWait(driver_detail, 20).until(
@@ -206,7 +214,7 @@ def scrapeDinner():
     scraper("Dinner")
 
 
-schedule.every().day.at("08:00").do(scrapeBreakfast)
+schedule.every().day.at("15:50").do(scrapeBreakfast)
 schedule.every().day.at("13:00").do(scrapeLunch)
 schedule.every().day.at("16:00").do(scrapeDinner)
 
