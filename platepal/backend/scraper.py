@@ -11,6 +11,7 @@ import certifi
 url = "https://dining.ncsu.edu/locations/"
 
 # look into cacheing the stuff to avoid repetition
+# Also since the menus are available at the beginning of the day, scrape at once
 
 connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
 
@@ -151,6 +152,7 @@ def scraper(meal):
                                     By.CLASS_NAME, "menu-nutrition-row"
                                 )
                                 nutrients = []
+                                allergens = []
                                 for row in nutrient_rows:
 
                                     nutrient_name = row.find_element(
@@ -162,7 +164,7 @@ def scraper(meal):
                                     ).text
 
                                     print(f"{nutrient_name}: {nutrient_value}")
-
+                                    # dining-menu-allergen-contains dining-menu-allergen-contains-traits
                                     nutrients.append(
                                         {
                                             "nutrient": nutrient_name,
@@ -170,11 +172,21 @@ def scraper(meal):
                                         }
                                     )
 
+                                    # allergens_list = row.find_element(
+                                    #     By.CLASS_NAME,
+                                    #     "dining-menu-allergen-contains dining-menu-allergen-contains-traits",
+                                    # ).text
+
+                                    # allergens_list.replace("and", "")
+
+                                    # allergens = allergens_list.split(", ")
+                                    # print(allergens)
+
                                 menu_item_id = db.items.insert_one(
                                     {
                                         "name": item_name,
                                         "nutrients": nutrients,
-                                        "allergens": [],
+                                        "allergens": allergens,
                                     }
                                 ).inserted_id
 
@@ -214,7 +226,7 @@ def scrapeDinner():
     scraper("Dinner")
 
 
-schedule.every().day.at("15:50").do(scrapeBreakfast)
+schedule.every().day.at("18:04").do(scrapeBreakfast)
 schedule.every().day.at("13:00").do(scrapeLunch)
 schedule.every().day.at("16:00").do(scrapeDinner)
 
