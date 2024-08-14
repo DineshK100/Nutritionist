@@ -1,24 +1,15 @@
 from pulp import *
-from pymongo import MongoClient
 import pandas as pd
-import certifi
+from connectDb import connectToMongo
 
-calorieConstraint = 3000
+calorieConstraint = 3000  # in cals
 sodiumConstraint = 2000  # in mg
 proteinConstraint = 180  # in g
 carbohydrateConstraint = 150  # in g
 
 connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
 
-try:
-    client = MongoClient(
-        connection_string, tlsCAFile=certifi.where(), tlsAllowInvalidCertificates=True
-    )
-except Exception as e:
-    print("Error:", e)
-
-db = client["diningMenus"]
-collection = db["menus"]
+db, collection = connectToMongo()
 
 data = pd.DataFrame(list(collection.find()))
 
