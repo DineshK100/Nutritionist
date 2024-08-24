@@ -76,6 +76,7 @@ for change in changeStream:
 
         # Update userFeedback dictionary
         userFeedback[item_name] = rating
+
         # Prepare training data from user feedback
         feedback_labels = []
         training_data = []
