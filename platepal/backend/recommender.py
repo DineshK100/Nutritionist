@@ -43,6 +43,6 @@ def initialRecommendations():
 
     recommended_list = [itemList[i] for i in recommended_indices]
 
-    print([item["name"] for item in recommended_list])
+    # print([item["name"] for item in recommended_list])
 
     return (foodItemVector, similarities, itemList, recommended_list)

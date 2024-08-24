@@ -26,10 +26,9 @@ except Exception as e:
 
 db = client["diningMenus"]
 
+
 # for the diningHalls cluster this will be the format:
 # name, menus (an array of menus representing breakfast, lunch, and dinner)
-
-
 def scraper(meal):
     driver_main = webdriver.Chrome()
     driver_detail = webdriver.Chrome()
