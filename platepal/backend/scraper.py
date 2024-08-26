@@ -13,8 +13,8 @@ url = "https://dining.ncsu.edu/locations/"
 # look into cacheing the stuff to avoid repetition
 # Also since the menus are available at the beginning of the day, scrape at once
 # Also scrape the allergens
-
-connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
+with open("auth.txt", "r") as f:
+    connection_string = f.read()
 
 try:
     client = MongoClient(

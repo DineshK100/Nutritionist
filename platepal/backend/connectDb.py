@@ -3,7 +3,8 @@ import certifi
 
 
 def connectToMongo():
-    connection_string = "mongodb+srv://dineshkarnati100:agre2u9tQ7v2V1XL@cluster0.nq5d7.mongodb.net/?tls=true"
+    with open("auth.txt", "r") as f:
+        connection_string = f.read
 
     try:
         client = MongoClient(

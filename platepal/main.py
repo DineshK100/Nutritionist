@@ -17,7 +17,7 @@ def main():
     # Get the user feedback somehow later down the line
 
     # Now train the model
-    # train()
+    train()
 
 
 main()
