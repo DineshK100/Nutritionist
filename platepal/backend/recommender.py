@@ -1,13 +1,21 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from connectDb import connectToMongo
+from .connectDb import connectToMongo
 
 
-def initialRecommendations():
+def initialRecommendations(location):
     db, collection = connectToMongo()
 
-    data = pd.DataFrame(list(collection.find()))
+    dining_hall = db.diningHalls.find_one({"name": location})
+    if not dining_hall:
+        print("Dining hall not found.")
+        return None
+
+    dining_hall_id = dining_hall["_id"]
+
+    # Filter the menus collection by diningHall_id
+    data = pd.DataFrame(list(collection.find({"diningHall_id": dining_hall_id})))
 
     userPreferences = np.array([500, 50, 1000])  # cals, protein, sodium
 

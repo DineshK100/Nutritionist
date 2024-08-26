@@ -3,108 +3,96 @@ import numpy as np
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.engine import data_adapter
-from recommender import initialRecommendations
+from .recommender import initialRecommendations
 import tensorflow.python.keras as tf_keras
 from keras import __version__
-from connectDb import connectToMongo
+from .connectDb import connectToMongo
 
 
-# Manual fix on bug found through StackOverFlow
-tf_keras.__version__ = __version__
-
-foodItemVector, similarities, itemList, recommended_list = initialRecommendations()
-
-
-# Manually changed this as per a few StackOverflow similar issues with distributed data set specs
+# Handling the issue with distributed datasets
 def _is_distributed_dataset(ds):
     return isinstance(ds, data_adapter.input_lib.DistributedDatasetSpec)
 
 
 data_adapter._is_distributed_dataset = _is_distributed_dataset
 
-
-db, collection = connectToMongo()
-collection = db["userFeedback"]
-
-changeStream = collection.watch()
+# Manual fix on bug found through StackOverFlow
+tf_keras.__version__ = __version__
 
 
-try:
-    model = tf.keras.models.load_model("userFeedback.keras")
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
-        loss="mean_squared_error",
+def load_or_initialize_model():
+
+    # Load the model or create a new one
+    try:
+        model = tf.keras.models.load_model("/userFeedback.keras")
+        # Reinitialize the optimizer
+        model.compile(
+            optimizer="adam",
+            loss="mean_squared_error",
+        )
+    except:
+        model = Sequential()
+        model.add(Dense(64, activation="relu"))
+        model.add(Dense(32, activation="relu"))
+        model.add(Dense(16, activation="relu"))
+        model.add(Dense(1, activation="sigmoid"))
+        model.compile(
+            optimizer="adam",
+            loss="mean_squared_error",
+        )
+    return model
+
+
+# Function to handle optimization
+def optimize(location):
+    model = load_or_initialize_model()
+    # Function to generate initial recommendations
+    foodItemVector, similarities, itemList, recommended_list = initialRecommendations(
+        location
     )
 
-except:
-    # activation functions
-    model = Sequential()
-    model.add(Dense(64, activation="relu"))
-    model.add(Dense(32, activation="relu"))
-    model.add(Dense(16, activation="relu"))
-    model.add(Dense(1, activation="sigmoid"))
+    training_data = np.hstack((foodItemVector, similarities.reshape(-1, 1)))
+    predicted_scores = model.predict(training_data).flatten()
+    new_recs = np.argsort(predicted_scores)[::-1][:10]
+    recommended_items = [itemList[i] for i in new_recs]
+    print("Recommended items:", [item["name"] for item in recommended_items])
 
-    adam = tf.keras.optimizers.Adam(learning_rate=0.001)
 
-    model.compile(
-        optimizer="adam",
-        loss="binary_crossentropy",
+# Function to handle model training
+def train(location):
+    model = load_or_initialize_model()
+    # Function to generate initial recommendations
+    foodItemVector, similarities, itemList, recommended_list = initialRecommendations(
+        location
     )
+    db, collection = connectToMongo()
+    collection = db["userFeedback"]
+    changeStream = collection.watch()
 
-userFeedback = {
-    "Combo - Fries/Drink": 3,
-    "Combo - Tots/Drink": 1,
-    "Bacon Cheeseburger": 2,
-    "Tuffy Tots": 5,
-    "Three Grilled Cheese Sandwich": 4,
-}
+    userFeedback = {}
+    for change in changeStream:
+        if change["operationType"] == "insert":
+            print("New feedback detected. Retraining the model...")
+            new_feedback = change["fullDocument"]
+            item_name = new_feedback["name"]
+            rating = new_feedback["rating"]
+            userFeedback[item_name] = rating
 
-# Temporary simulated user feedback
-feedback_labels = []
+            feedback_labels = []
+            training_data = []
 
-training_data = []
+            for item in itemList:
+                if item["name"] in userFeedback:
+                    rating = userFeedback[item["name"]]
+                    feedback_labels.append(rating)
+                    item_index = itemList.index(item)
+                    combined_vector = np.hstack(
+                        (foodItemVector[item_index], similarities[item_index])
+                    )
+                    training_data.append(combined_vector)
 
-for change in changeStream:
-    if change["operationType"] == "insert":
-        # New feedback detected
-        print("New feedback detected. Retraining the model...")
+            training_data = np.array(training_data)
+            feedback_labels = np.array(feedback_labels)
 
-        # Retrieve and prepare the new feedback data
-        new_feedback = change["fullDocument"]
-        item_name = new_feedback["name"]
-        rating = new_feedback["rating"]
-
-        # Update userFeedback dictionary
-        userFeedback[item_name] = rating
-
-        # Prepare training data from user feedback
-        feedback_labels = []
-        training_data = []
-
-        for item in itemList:
-            item_name = item["name"]
-            if item_name in userFeedback:
-                rating = userFeedback[item_name]
-                feedback_labels.append(rating)
-                item_index = itemList.index(item)
-
-                combined_vector = np.hstack(
-                    (foodItemVector[item_index], similarities[item_index])
-                )
-                training_data.append(combined_vector)
-
-        training_data = np.array(training_data)
-        feedback_labels = np.array(feedback_labels)
-
-        # Continue training the model with the new feedback
-        model.fit(training_data, feedback_labels, epochs=10, batch_size=8)
-
-        # Save the model after retraining
-        model.save("userFeedback.keras")
-
-        # Generate new recommendations
-        predicted_scores = model.predict(training_data).flatten()
-        new_recs = np.argsort(predicted_scores)[::-1][:10]
-        recommended_items = [itemList[i] for i in new_recs]
-
-        print("Recommended items:", [item["name"] for item in recommended_items])
+            model.fit(training_data, feedback_labels, epochs=10, batch_size=8)
+            model.save("userFeedback.keras")
