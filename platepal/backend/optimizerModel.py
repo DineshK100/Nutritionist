@@ -25,21 +25,12 @@ def load_or_initialize_model():
     # Load the model or create a new one
     try:
         model = tf.keras.models.load_model("/userFeedback.keras")
-        # Reinitialize the optimizer
-        model.compile(
-            optimizer="adam",
-            loss="mean_squared_error",
-        )
     except:
         model = Sequential()
         model.add(Dense(64, activation="relu"))
         model.add(Dense(32, activation="relu"))
         model.add(Dense(16, activation="relu"))
         model.add(Dense(1, activation="sigmoid"))
-        model.compile(
-            optimizer="adam",
-            loss="mean_squared_error",
-        )
     return model
 
 
@@ -94,5 +85,10 @@ def train(location):
             training_data = np.array(training_data)
             feedback_labels = np.array(feedback_labels)
 
+            model.compile(
+                optimizer="adam",
+                loss="mean_squared_error",
+            )
+
             model.fit(training_data, feedback_labels, epochs=10, batch_size=8)
-            model.save("userFeedback.keras")
+            model.save("userFeedback.keras", compile=True)
