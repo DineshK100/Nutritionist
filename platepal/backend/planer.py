@@ -1,6 +1,6 @@
 from pulp import *
 import pandas as pd
-from platepal.backend.connectDb_insec import connectToMongo
+from platepal.backend.connectDb import connectToMongo
 
 calorieConstraint = 3000  # in cals
 sodiumConstraint = 2000  # in mg

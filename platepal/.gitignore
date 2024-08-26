@@ -22,9 +22,3 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-platepal/backend/connectDb_insec.py
-platepal/backend/optimizerModel_insec.py
-platepal/backend/planer_insec.py
-platepal/backend/recommender_insec.py
-platepal/backend/scraper_insec.py

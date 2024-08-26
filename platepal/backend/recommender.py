@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from .connectDb_insec import connectToMongo
+from .connectDb import connectToMongo
 
 
 def initialRecommendations(location):
