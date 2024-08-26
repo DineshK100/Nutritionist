@@ -3,10 +3,10 @@ import numpy as np
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.layers import Dense
 from tensorflow.python.keras.engine import data_adapter
-from .recommender import initialRecommendations
+from .recommender_insec import initialRecommendations
 import tensorflow.python.keras as tf_keras
 from keras import __version__
-from .connectDb import connectToMongo
+from .connectDb_insec import connectToMongo
 
 
 # Handling the issue with distributed datasets
